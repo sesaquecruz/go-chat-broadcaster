@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sesaquecruz/go-chat-broadcaster/config"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/rabbitmq"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/redis"
@@ -34,12 +35,17 @@ func SetupContainers(ctx context.Context) (*test.RabbitMQContainer, *test.RedisC
 }
 
 func SetupBrokers(rabbitContainer *test.RabbitMQContainer, redisContainer *test.RedisContainer) (*rabbitmq.Broker, *redis.Broker) {
-	conn, ch, err := rabbitmq.Connection(rabbitContainer.Url())
+	cfg := &config.Config{
+		RabbitMqUrl: rabbitContainer.Url(),
+		RedisAddr:   redisContainer.Addr(),
+	}
+
+	conn, ch, err := rabbitmq.Connection(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rdb := redis.Connection(redisContainer.Addr())
+	rdb := redis.Connection(cfg)
 
 	rabbitBroker := rabbitmq.NewBroker(conn, ch)
 	redisBroker := redis.NewBroker(rdb)

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sesaquecruz/go-chat-broadcaster/config"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/test"
 
@@ -18,7 +19,7 @@ func SetupContainer(ctx context.Context) *test.RedisContainer {
 }
 
 func SetupBroker(container *test.RedisContainer) *Broker {
-	rdb := Connection(container.Addr())
+	rdb := Connection(&config.Config{RedisAddr: container.Addr()})
 	broker := NewBroker(rdb)
 	return broker
 }

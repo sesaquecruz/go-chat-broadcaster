@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sesaquecruz/go-chat-broadcaster/config"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/test"
 
@@ -30,7 +31,7 @@ func SetupContainer(ctx context.Context) *test.RabbitMQContainer {
 }
 
 func SetupBroker(container *test.RabbitMQContainer) *Broker {
-	conn, ch, err := Connection(container.Url())
+	conn, ch, err := Connection(&config.Config{RabbitMqUrl: container.Url()})
 	if err != nil {
 		log.Fatal(err)
 	}

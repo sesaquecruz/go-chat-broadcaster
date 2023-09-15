@@ -1,9 +1,13 @@
 package rabbitmq
 
-import amqp "github.com/rabbitmq/amqp091-go"
+import (
+	"github.com/sesaquecruz/go-chat-broadcaster/config"
 
-func Connection(url string) (*amqp.Connection, *amqp.Channel, error) {
-	conn, err := amqp.Dial(url)
+	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+func Connection(cfg *config.Config) (*amqp.Connection, *amqp.Channel, error) {
+	conn, err := amqp.Dial(cfg.RabbitMqUrl)
 	if err != nil {
 		return nil, nil, err
 	}
