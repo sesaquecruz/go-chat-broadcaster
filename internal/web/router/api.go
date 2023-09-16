@@ -22,12 +22,10 @@ func ApiRouter(
 	api := r.Group(cfg.ApiPath)
 	{
 		api.GET("/healthz", gin.WrapH(healthz.Healthz()))
+
 		api.Use(middleware.JwtMiddleware(cfg.JwtIssuer, cfg.JwtAudience))
 
-		rooms := api.Group("/rooms")
-		{
-			rooms.GET("/:roomId/subscribe", subscriber.Subscribe)
-		}
+		api.GET("/subscribe/:roomId", subscriber.Subscribe)
 	}
 
 	return r

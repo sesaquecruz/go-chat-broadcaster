@@ -183,7 +183,7 @@ func TestShouldReturnHealthInfo(t *testing.T) {
 func TestShouldReturnUnauthorizedWhenTrySubscribeWithoutAuthorization(t *testing.T) {
 	setupApiRouter()
 
-	url := fmt.Sprintf("%s/rooms/%s/subscribe", apiUrl, uuid.NewString())
+	url := fmt.Sprintf("%s/subscribe/%s", apiUrl, uuid.NewString())
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	assert.Nil(t, err)
 
@@ -227,7 +227,7 @@ func TestShouldSubscribeAndReceiveMessages(t *testing.T) {
 		return
 	}
 
-	url := fmt.Sprintf("%s/rooms/%s/subscribe", apiUrl, roomId)
+	url := fmt.Sprintf("%s/subscribe/%s", apiUrl, roomId)
 
 	jwt, err := authServer.GenerateJwt(authServer.GenerateSubject())
 	assert.Nil(t, err)
