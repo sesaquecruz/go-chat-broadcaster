@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/sesaquecruz/go-chat-broadcaster/config"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/rabbitmq"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/redis"
@@ -18,54 +18,91 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func SetupContainers(ctx context.Context) (*test.RabbitMQContainer, *test.RedisContainer) {
-	configDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
+const testTimeout = 240 * time.Second
+
+var mu sync.Mutex
+
+var (
+	ctx               context.Context
+	rabbitMqContainer *test.RabbitMqContainer
+	redisContainer    *test.RedisContainer
+	rabbitMqBroker    *rabbitmq.Broker
+	redisBroker       *redis.Broker
+	broadcaster       *Broadcaster
+)
+
+func setupBroadcaster() {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if ctx == nil {
+		ctx, _ = context.WithTimeout(context.Background(), testTimeout)
 	}
 
-	for i := 0; i < 2; i++ {
-		configDir = filepath.Dir(configDir)
+	if rabbitMqContainer == nil {
+		currentDepth := 2
+
+		configDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i := 0; i < currentDepth; i++ {
+			configDir = filepath.Dir(configDir)
+		}
+
+		rabbitMqContainer = test.NewRabbitMqContainer(ctx, configDir)
 	}
 
-	rbt := test.NewRabbitMQContainer(ctx, configDir)
-	rds := test.NewRedisContainer(ctx)
+	if redisContainer == nil {
+		redisContainer = test.NewRedisContainer(ctx)
+	}
 
-	return rbt, rds
+	if rabbitMqBroker == nil {
+		conn, err := rabbitmq.Connect(rabbitMqContainer.Url())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		rabbitMqBroker = rabbitmq.NewBroker(conn)
+	}
+
+	if redisBroker == nil {
+		conn := redis.Connect(redisContainer.Url())
+		redisBroker = redis.NewBroker(conn)
+	}
+
+	if broadcaster == nil {
+		broadcaster = NewBroadcaster(rabbitMqBroker, redisBroker)
+
+		go func() {
+			err := broadcaster.Start(ctx)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+
+		<-time.After(5 * time.Second)
+	}
 }
 
-func SetupBrokers(rabbitContainer *test.RabbitMQContainer, redisContainer *test.RedisContainer) (*rabbitmq.Broker, *redis.Broker) {
-	cfg := &config.Config{
-		RabbitMqUrl: rabbitContainer.Url(),
-		RedisAddr:   redisContainer.Addr(),
-	}
+func TestShouldReturnAnErrorWhenCallStartOnStartedBroadcaster(t *testing.T) {
+	setupBroadcaster()
 
-	conn, ch, err := rabbitmq.Connection(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	rdb := redis.Connection(cfg)
-
-	rabbitBroker := rabbitmq.NewBroker(conn, ch)
-	redisBroker := redis.NewBroker(rdb)
-
-	return rabbitBroker, redisBroker
+	err := broadcaster.Start(ctx)
+	assert.ErrorIs(t, err, ErrBroadcasterAlreadyStarted)
 }
 
 func TestShouldReceiveAndDeliverMessages(t *testing.T) {
-	ctx := context.Background()
-	rabbitBroker, redisBroker := SetupBrokers(SetupContainers(ctx))
-
-	err := Broadcast(ctx, rabbitBroker, redisBroker)
-	assert.Nil(t, err)
+	setupBroadcaster()
 
 	roomId := uuid.NewString()
 	msg := &model.Message{Id: uuid.NewString(), RoomId: roomId}
 
+	// Publish on rabbitmq
 	go func() {
 		for {
-			err := rabbitBroker.Publish(ctx, msg)
+			err := rabbitMqBroker.Publish(ctx, msg)
 			assert.Nil(t, err)
 			<-time.After(500 * time.Millisecond)
 		}
@@ -74,14 +111,13 @@ func TestShouldReceiveAndDeliverMessages(t *testing.T) {
 	subs := 10
 	recv := make(chan *model.Message)
 
-	sub := func() {
-		msgs := redisBroker.Subscribe(ctx, roomId)
-		m := <-msgs
-		recv <- m
-	}
-
+	// Receive from redis
 	for i := 0; i < subs; i++ {
-		go sub()
+		go func() {
+			msgs := redisBroker.Subscribe(ctx, roomId)
+			m := <-msgs
+			recv <- m
+		}()
 	}
 
 	timeout := time.After(30 * time.Second)

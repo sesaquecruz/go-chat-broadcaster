@@ -6,18 +6,16 @@ import (
 
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/pkg/log"
-
-	"github.com/redis/go-redis/v9"
 )
 
 type Broker struct {
-	rdb    *redis.Client
+	conn   *Connection
 	logger *log.Logger
 }
 
-func NewBroker(rdb *redis.Client) *Broker {
+func NewBroker(conn *Connection) *Broker {
 	return &Broker{
-		rdb:    rdb,
+		conn:   conn,
 		logger: log.NewLoggerOfObject(Broker{}),
 	}
 }
@@ -29,7 +27,7 @@ func (b *Broker) Publish(ctx context.Context, message *model.Message) error {
 		return err
 	}
 
-	err = b.rdb.Publish(ctx, message.RoomId, data).Err()
+	err = b.conn.Rdb.Publish(ctx, message.RoomId, data).Err()
 	if err != nil {
 		b.logger.Error(err)
 		return err
@@ -39,7 +37,7 @@ func (b *Broker) Publish(ctx context.Context, message *model.Message) error {
 }
 
 func (b *Broker) Subscribe(ctx context.Context, roomId string) <-chan *model.Message {
-	sub := b.rdb.Subscribe(ctx, roomId)
+	sub := b.conn.Rdb.Subscribe(ctx, roomId)
 	msgs := sub.Channel()
 	res := make(chan *model.Message)
 

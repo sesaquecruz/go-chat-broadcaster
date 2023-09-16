@@ -1,0 +1,15 @@
+[app]
+version = "test-local"
+
+[app.api]
+port = "8080"
+
+[app.jwt]
+issuer = "https://dev-j6pmr0ckitt2062o.us.auth0.com/"
+audience = "https://dev-j6pmr0ckitt2062o.us.auth0.com/userinfo"
+
+[app.rabbitmq]
+url = "amqp://guest:guest@localhost:5672"
+
+[app.redis]
+url = "localhost:6379"

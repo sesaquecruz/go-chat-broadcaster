@@ -1,55 +1,68 @@
 package config
 
 import (
-	"log"
-	"os"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
-type Info struct {
-	ServiceName string
-	ApiVersion  string
-}
-
 type Config struct {
-	ApiPort     string
-	JwtIssuer   string
-	JwtAudience []string
-	RabbitMqUrl string
-	RedisAddr   string
+	ServiceName    string
+	ServiceVersion string
+	ApiPath        string
+	ApiPort        string
+	JwtIssuer      string
+	JwtAudience    []string
+	RabbitMqUrl    string
+	RedisUrl       string
 }
 
-var info *Info
-var cfg *Config
-
-func getEnv(key string) string {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		log.Printf("env var %s was not found\n", key)
-	}
-
-	return value
-}
+var (
+	env  *viper.Viper
+	file *viper.Viper
+	cfg  *Config
+)
 
 func init() {
-	info = &Info{
-		ServiceName: "go-chat-broadaster",
-		ApiVersion:  "v1",
-	}
+	env = viper.New()
+	env.SetDefault("APP_VERSION", "")
+	env.SetDefault("APP_API_PORT", "")
+	env.SetDefault("APP_JWT_ISSUER", "")
+	env.SetDefault("APP_JWT_AUDIENCE", "")
+	env.SetDefault("APP_RABBITMQ_URL", "")
+	env.SetDefault("APP_REDIS_URL", "")
+	env.AutomaticEnv()
 
-	cfg = &Config{
-		ApiPort:     getEnv("BROAD_API_PORT"),
-		JwtIssuer:   getEnv("BROAD_JWT_ISSUER"),
-		JwtAudience: strings.Split(getEnv("BROAD_JWT_AUDIENCE"), ","),
-		RabbitMqUrl: getEnv("BROAD_RABBITMQ_URL"),
-		RedisAddr:   getEnv("BROAD_REDIS_ADDR"),
-	}
+	file = viper.New()
+	file.SetConfigName("config")
+	file.SetConfigType("toml")
+	file.AddConfigPath(".")
+	file.ReadInConfig()
 }
 
-func GetInfo() *Info {
-	return info
+func getEnv(key string) string {
+	envVal := env.GetString(key)
+	if envVal != "" {
+		return envVal
+	}
+
+	fileVal := file.GetString(strings.Replace(key, "_", ".", -1))
+	return fileVal
 }
 
-func GetConfig() *Config {
+func Load() *Config {
+	if cfg == nil {
+		cfg = &Config{
+			ServiceName:    "go-chat-broadcaster",
+			ServiceVersion: getEnv("APP_VERSION"),
+			ApiPath:        "/api/v1",
+			ApiPort:        getEnv("APP_API_PORT"),
+			JwtIssuer:      getEnv("APP_JWT_ISSUER"),
+			JwtAudience:    strings.Split(getEnv("APP_JWT_AUDIENCE"), ","),
+			RabbitMqUrl:    getEnv("APP_RABBITMQ_URL"),
+			RedisUrl:       getEnv("APP_REDIS_URL"),
+		}
+	}
+
 	return cfg
 }

@@ -2,10 +2,10 @@ package redis
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/sesaquecruz/go-chat-broadcaster/config"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/test"
 
@@ -13,25 +13,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func SetupContainer(ctx context.Context) *test.RedisContainer {
-	container := test.NewRedisContainer(ctx)
-	return container
-}
+const testTimeout = 240 * time.Second
 
-func SetupBroker(container *test.RedisContainer) *Broker {
-	rdb := Connection(&config.Config{RedisAddr: container.Addr()})
-	broker := NewBroker(rdb)
-	return broker
+var mu sync.Mutex
+
+var (
+	ctx            context.Context
+	redisContainer *test.RedisContainer
+	broker         *Broker
+)
+
+func setupBroker() {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if ctx == nil {
+		ctx, _ = context.WithTimeout(context.Background(), testTimeout)
+	}
+
+	if redisContainer == nil {
+		redisContainer = test.NewRedisContainer(ctx)
+	}
+
+	if broker == nil {
+		conn := Connect(redisContainer.Url())
+		broker = NewBroker(conn)
+	}
 }
 
 func TestShouldSendAndReceiveMessages(t *testing.T) {
-	ctx := context.Background()
-	broker := SetupBroker(SetupContainer(ctx))
+	setupBroker()
 
 	roomId := uuid.NewString()
 	msgs := broker.Subscribe(ctx, roomId)
-
-	timeout := time.After(30 * time.Second)
 
 	for i := 0; i < 10; i++ {
 		msg := &model.Message{Id: uuid.NewString(), RoomId: roomId}
@@ -42,7 +56,7 @@ func TestShouldSendAndReceiveMessages(t *testing.T) {
 		case res := <-msgs:
 			assert.Equal(t, msg.Id, res.Id)
 			assert.Equal(t, msg.RoomId, res.RoomId)
-		case <-timeout:
+		case <-ctx.Done():
 			t.Error("timeout reached")
 			return
 		}

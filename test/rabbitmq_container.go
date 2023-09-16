@@ -9,12 +9,12 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-type RabbitMQContainer struct {
+type RabbitMqContainer struct {
 	container testcontainers.Container
 	url       string
 }
 
-func NewRabbitMQContainer(ctx context.Context, configDir string) *RabbitMQContainer {
+func NewRabbitMqContainer(ctx context.Context, configDir string) *RabbitMqContainer {
 	rabbitmq := testcontainers.ContainerRequest{
 		Image:        "rabbitmq:3.12.3-management-alpine",
 		ExposedPorts: []string{"5672/tcp"},
@@ -55,12 +55,12 @@ func NewRabbitMQContainer(ctx context.Context, configDir string) *RabbitMQContai
 		log.Fatal(err)
 	}
 
-	return &RabbitMQContainer{
+	return &RabbitMqContainer{
 		container: container,
 		url:       fmt.Sprintf("amqp://guest:guest@%s:%s", host, port.Port()),
 	}
 }
 
-func (c *RabbitMQContainer) Url() string {
+func (c *RabbitMqContainer) Url() string {
 	return c.url
 }

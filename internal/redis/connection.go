@@ -1,15 +1,19 @@
 package redis
 
 import (
-	"github.com/sesaquecruz/go-chat-broadcaster/config"
-
 	"github.com/redis/go-redis/v9"
 )
 
-func Connection(cfg *config.Config) *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr,
+type Connection struct {
+	Rdb *redis.Client
+}
+
+func Connect(url string) *Connection {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     url,
 		Password: "",
 		DB:       0,
 	})
+
+	return &Connection{rdb}
 }

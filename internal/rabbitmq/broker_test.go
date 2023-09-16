@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/sesaquecruz/go-chat-broadcaster/config"
 	"github.com/sesaquecruz/go-chat-broadcaster/internal/model"
 	"github.com/sesaquecruz/go-chat-broadcaster/test"
 
@@ -16,38 +16,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func SetupContainer(ctx context.Context) *test.RabbitMQContainer {
-	configDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
+const testTimeout = 240 * time.Second
+
+var mu sync.Mutex
+
+var (
+	ctx               context.Context
+	rabbitMqContainer *test.RabbitMqContainer
+	broker            *Broker
+)
+
+func setupBroker() {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if ctx == nil {
+		ctx, _ = context.WithTimeout(context.Background(), testTimeout)
 	}
 
-	for i := 0; i < 2; i++ {
-		configDir = filepath.Dir(configDir)
+	if rabbitMqContainer == nil {
+		currentDepth := 2
+
+		configDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i := 0; i < currentDepth; i++ {
+			configDir = filepath.Dir(configDir)
+		}
+
+		rabbitMqContainer = test.NewRabbitMqContainer(ctx, configDir)
 	}
 
-	container := test.NewRabbitMQContainer(ctx, configDir)
-	return container
-}
+	if broker == nil {
+		conn, err := Connect(rabbitMqContainer.Url())
+		if err != nil {
+			log.Fatal(err)
+		}
 
-func SetupBroker(container *test.RabbitMQContainer) *Broker {
-	conn, ch, err := Connection(&config.Config{RabbitMqUrl: container.Url()})
-	if err != nil {
-		log.Fatal(err)
+		broker = NewBroker(conn)
 	}
-
-	broker := NewBroker(conn, ch)
-	return broker
 }
 
 func TestShouldSendAndReceiveMessages(t *testing.T) {
-	ctx := context.Background()
-	broker := SetupBroker(SetupContainer(ctx))
+	setupBroker()
 
 	msgs, err := broker.Subscribe(ctx)
 	assert.Nil(t, err)
-
-	timeout := time.After(30 * time.Second)
 
 	for i := 0; i < 10; i++ {
 		msg := &model.Message{Id: uuid.NewString(), RoomId: uuid.NewString()}
@@ -58,7 +74,7 @@ func TestShouldSendAndReceiveMessages(t *testing.T) {
 		case res := <-msgs:
 			assert.Equal(t, msg.Id, res.Id)
 			assert.Equal(t, msg.RoomId, res.RoomId)
-		case <-timeout:
+		case <-ctx.Done():
 			t.Error("timeout reached")
 			return
 		}

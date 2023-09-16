@@ -11,15 +11,13 @@ import (
 )
 
 type Broker struct {
-	conn   *amqp.Connection
-	ch     *amqp.Channel
+	conn   *Connection
 	logger *log.Logger
 }
 
-func NewBroker(conn *amqp.Connection, ch *amqp.Channel) *Broker {
+func NewBroker(conn *Connection) *Broker {
 	return &Broker{
 		conn:   conn,
-		ch:     ch,
 		logger: log.NewLoggerOfObject(Broker{}),
 	}
 }
@@ -36,7 +34,7 @@ func (b *Broker) Publish(ctx context.Context, message *model.Message) error {
 		Body:        body,
 	}
 
-	err = b.ch.PublishWithContext(
+	err = b.conn.Ch.PublishWithContext(
 		ctx,
 		"messages",
 		"",
@@ -53,7 +51,7 @@ func (b *Broker) Publish(ctx context.Context, message *model.Message) error {
 }
 
 func (b *Broker) Subscribe(ctx context.Context) (<-chan *model.Message, error) {
-	ch, err := b.conn.Channel()
+	ch, err := b.conn.Conn.Channel()
 	if err != nil {
 		b.logger.Error(err)
 		return nil, err
@@ -80,8 +78,13 @@ func (b *Broker) Subscribe(ctx context.Context) (<-chan *model.Message, error) {
 		defer ch.Close()
 		defer close(res)
 
+		offline := make(chan *amqp.Error)
+		b.conn.Conn.NotifyClose(offline)
+
 		for {
 			select {
+			case <-offline:
+				return
 			case <-ctx.Done():
 				return
 			case msg := <-msgs:

@@ -11,7 +11,7 @@ import (
 
 type RedisContainer struct {
 	container *redis.RedisContainer
-	addr      string
+	url       string
 }
 
 func NewRedisContainer(ctx context.Context) *RedisContainer {
@@ -32,10 +32,10 @@ func NewRedisContainer(ctx context.Context) *RedisContainer {
 
 	return &RedisContainer{
 		container: container,
-		addr:      fmt.Sprintf("%s:%s", host, port.Port()),
+		url:       fmt.Sprintf("%s:%s", host, port.Port()),
 	}
 }
 
-func (c *RedisContainer) Addr() string {
-	return c.addr
+func (c *RedisContainer) Url() string {
+	return c.url
 }
