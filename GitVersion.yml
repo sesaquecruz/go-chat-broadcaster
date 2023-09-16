@@ -1,0 +1,49 @@
+mode: MainLine
+
+major-version-bump-message: '^(feat|fix|refactor|revert)!:'
+minor-version-bump-message: '^(feat):'
+patch-version-bump-message: '^(fix|refactor|revert|test|build|chore):'
+
+branches:
+  main:
+    regex: ^main$
+    mode: ContinuousDeployment
+    tag: useBranchName
+    increment: None
+    prevent-increment-of-merged-branch-version: true
+    is-mainline: true
+  hotfix:
+    regex: ^hotfix/
+    mode: ContinuousDelivery
+    tag: useBranchName
+    increment: None
+    prevent-increment-of-merged-branch-version: true
+    source-branches: [ 'main' ]
+  develop:
+    regex: ^develop$
+    mode: ContinuousDelivery
+    tag: useBranchName
+    increment: None
+    prevent-increment-of-merged-branch-version: true
+    source-branches: [ 'main' ]
+  feature:
+    regex: ^feature/
+    mode: ContinuousDelivery
+    tag: useBranchName
+    increment: None
+    prevent-increment-of-merged-branch-version: true
+    source-branches: [ 'develop' ]
+  bugfix:
+    regex: ^bugfix/
+    mode: ContinuousDelivery
+    tag: useBranchName
+    increment: None
+    prevent-increment-of-merged-branch-version: true
+    source-branches: [ 'develop', 'release' ]
+  release:
+    regex: ^release/
+    mode: ContinuousDelivery
+    tag: useBranchName
+    increment: None
+    prevent-increment-of-merged-branch-version: true
+    source-branches: [ 'develop' ]

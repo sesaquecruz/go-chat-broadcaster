@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.12.3-management-alpine
+    volumes:
+      - "./rabbitmq.config:/etc/rabbitmq/rabbitmq.config"
+      - "./rabbitmq.json:/etc/rabbitmq/definitions.json"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      timeout: 10s
+      retries: 6
+  
+  redis:
+    container_name: redis
+    image: redis:7.2-alpine
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: redis-cli ping
+      timeout: 10s
+      retries: 6
+
+  broadcaster:
+    profiles:
+      - app
+    container_name: broadcaster
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    build: .
+    environment:
+      - APP_VERSION=test-docker-compose
+      - APP_API_PORT=8080
+      - APP_JWT_ISSUER=https://dev-j6pmr0ckitt2062o.us.auth0.com/
+      - APP_JWT_AUDIENCE=https://dev-j6pmr0ckitt2062o.us.auth0.com/userinfo
+      - APP_RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - APP_REDIS_URL=redis:6379
+    ports:
+      - "8080:8080"
