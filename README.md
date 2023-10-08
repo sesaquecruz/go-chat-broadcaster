@@ -10,7 +10,6 @@ The Chat Broadcaster is a specialized service designed to receive messages from 
 
 ## Related repositories
 
-- [Chat App](https://github.com/sesaquecruz/react-chat-app)
 - [Chat API](https://github.com/sesaquecruz/go-chat-api)
 - [Chat Infra](https://github.com/sesaquecruz/k8s-chat-infra)
 - [Chat Broadcaster Docker Hub](https://hub.docker.com/r/sesaquecruz/go-chat-broadcaster/tags)
